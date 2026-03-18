@@ -156,7 +156,7 @@
 
         /* Purana .view-panel hata kar ye wala dalein */
 .view-panel {
-    display: none !important; /* Default mein poori tarah band */
+    display: none; /* Default mein poori tarah band */
     opacity: 0;
     width: 100%;
     height: 100%;
@@ -2181,6 +2181,9 @@ function resetJarvisUI() {
 // 2. MAIN COMMAND ROUTER (Saare Apps aur AI ka Logic)
 async function processCommand(rawText) {
     const cmd = rawText.toLowerCase().trim();
+    const hasCommanderKey = cmd.includes('alpha zero one');
+    const isProtocolRedCommand = cmd.includes('protocol red') || cmd.includes('combat mode') || cmd.includes('emergency mode');
+    const isSelfDestructCommand = cmd.includes('self-destruct') || cmd.includes('self destruct');
     if (!cmd) return;
     userState.runtime.lastCommand = rawText;
     logSystemActivity('COMMAND', `Executing command: ${rawText}`);
@@ -2211,9 +2214,21 @@ async function processCommand(rawText) {
         resetJarvisUI(); return;
     }
 
-    if (cmd.includes('protocol red') || cmd.includes('combat mode') || cmd.includes('emergency mode')) {
+    if (isProtocolRedCommand || isSelfDestructCommand) {
+        if (!hasCommanderKey) {
+            speakResponse("Voice Signature Mismatch");
+            resetJarvisUI(); return;
+        }
+    }
+
+    if (isProtocolRedCommand) {
         activateProtocolRed('Command');
         speakResponse("Protocol Red engaged. ULTRON defense persona online.");
+        resetJarvisUI(); return;
+    }
+
+    if (isSelfDestructCommand) {
+        speakResponse("Self-Destruct protocol acknowledged. Commander authorization confirmed.");
         resetJarvisUI(); return;
     }
 
