@@ -160,7 +160,7 @@
 
         /* Purana .view-panel hata kar ye wala dalein */
 .view-panel {
-    display: none !important; /* Default mein poori tarah band */
+    display: none; /* Default mein poori tarah band */
     opacity: 0;
     width: 100%;
     height: 100%;
@@ -379,6 +379,8 @@
         .flex-col { display: flex; flex-direction: column; }
         .flex-row { display: flex; flex-direction: row; }
         .flex-between { display: flex; justify-content: space-between; align-items: center; }
+        .view-panel { display: none; }
+        .view-panel.active-view { display: flex !important; }
         .flex-around { display: flex; justify-content: space-around; align-items: center; }
         .w-full { width: 100%; }
         .h-full { height: 100%; }
@@ -1354,8 +1356,8 @@
                     System Status: Online
                 </div>
                 <div id="system-health-hud" class="flex items-center gap-2" aria-live="polite">
-                    <span id="battery-status" class="px-2 py-1 rounded border border-green-400/40 bg-green-400/10 text-[10px] text-green-300 font-bold uppercase tracking-wider">Battery: --%</span>
-                    <span id="latency-status" class="px-2 py-1 rounded border border-cyan/40 bg-cyan/10 text-[10px] text-cyan font-bold uppercase tracking-wider">Latency: --ms</span>
+                    <span id="battery-status" aria-label="System battery level indicator" class="px-2 py-1 rounded border border-green-400/40 bg-green-400/10 text-[10px] text-green-300 font-bold uppercase tracking-wider">Battery: --%</span>
+                    <span id="latency-status" aria-label="Network latency indicator" class="px-2 py-1 rounded border border-cyan/40 bg-cyan/10 text-[10px] text-cyan font-bold uppercase tracking-wider">Latency: --ms</span>
                 </div>
                 <!-- Plan Badge -->
                 <div id="plan-badge" class="px-2 py-1 rounded border border-gray-700 bg-white/5 text-[10px] text-dim font-bold uppercase tracking-wider">
@@ -1676,7 +1678,8 @@ const userState = {
         isProtocolRedActive: false, // Emergency HUD override state
         isDeviceLocked: false, // Guardian lock simulation state
         lastCommand: null,
-        sessionStart: Date.now()
+        sessionStart: Date.now(),
+        lowBatteryAlertSent: false
     },
     permissions: {
         mic: false,
@@ -1947,7 +1950,7 @@ const userState = {
             document.querySelectorAll('.nav-btn').forEach(btn => {
                 btn.classList.remove('text-cyan');
                 btn.classList.add('text-dim');
-                if(btn.getAttribute('data-view') === viewId) {
+                if (btn.getAttribute('data-view') === viewId) {
                     btn.classList.add('text-cyan');
                     btn.classList.remove('text-dim');
                 }
@@ -3514,8 +3517,6 @@ setTimeout(unlockJarvisInterface, 3000);
         */
 
         function initHudData() {
-            let lowBatteryAlertSent = false;
-
             // Battery API
             if (navigator.getBattery) {
                 navigator.getBattery().then(battery => {
@@ -3529,13 +3530,15 @@ setTimeout(unlockJarvisInterface, 3000);
                                     ? 'border-red-400/40 bg-red-500/10 text-red-300'
                                     : 'border-green-400/40 bg-green-400/10 text-green-300'
                             }`;
+                            dom.batteryStatus.setAttribute('aria-label', `System battery level indicator: ${lowBattery ? 'critical' : 'normal'} at ${level}%`);
                         }
-                        if (lowBattery && !lowBatteryAlertSent) {
-                            lowBatteryAlertSent = true;
+                        if (lowBattery && !userState.runtime.lowBatteryAlertSent) {
+                            userState.runtime.lowBatteryAlertSent = true;
                             speakResponse("Commander, power levels are critical.");
+                            showToast("Battery critical: power levels below 20%", "warning");
                             logSystemActivity('SYSTEM', `Battery critical at ${level}%`, 'WARN');
                         } else if (!lowBattery) {
-                            lowBatteryAlertSent = false;
+                            userState.runtime.lowBatteryAlertSent = false;
                         }
                         console.log(`HUD: Battery at ${level}%`);
                     };
@@ -3545,6 +3548,7 @@ setTimeout(unlockJarvisInterface, 3000);
                 });
             } else if (dom.batteryStatus) {
                 dom.batteryStatus.textContent = 'Battery: N/A';
+                dom.batteryStatus.setAttribute('aria-label', 'System battery level indicator: unavailable');
             }
 
             // Connection Latency Tracking
@@ -3552,16 +3556,21 @@ setTimeout(unlockJarvisInterface, 3000);
                 if (!dom.latencyStatus) return;
                 if (!navigator.onLine) {
                     dom.latencyStatus.textContent = 'Latency: Offline';
+                    dom.latencyStatus.setAttribute('aria-label', 'Network latency indicator: offline');
                     return;
                 }
                 const t0 = performance.now();
+                const pingUrl = `${window.location.origin}/`;
                 try {
-                    await fetch(window.location.href, { method: 'HEAD', cache: 'no-store' });
+                    await fetch(pingUrl, { method: 'HEAD', cache: 'no-store' });
                     const latency = Math.max(1, Math.round(performance.now() - t0));
                     dom.latencyStatus.textContent = `Latency: ${latency}ms`;
-                } catch (_) {
+                    dom.latencyStatus.setAttribute('aria-label', `Network latency indicator: ${latency} milliseconds`);
+                } catch (error) {
                     const fallbackLatency = Math.max(1, Math.round(performance.now() - t0));
-                    dom.latencyStatus.textContent = `Latency: ${fallbackLatency}ms`;
+                    dom.latencyStatus.textContent = 'Latency: Unavailable';
+                    dom.latencyStatus.setAttribute('aria-label', `Network latency indicator: unavailable (last probe ${fallbackLatency} milliseconds)`);
+                    console.warn('HUD latency probe fallback used', error);
                 }
             };
             updateLatency();
