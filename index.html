@@ -415,6 +415,21 @@
     margin-top: 15vh; /* Screen ke center mein rakhne ke liye */
     cursor: pointer;
     z-index: 10;
+    border: 1px solid rgba(0, 243, 255, 0.18);
+    border-radius: 50%;
+    box-shadow: 0 0 28px rgba(0, 243, 255, 0.12), inset 0 0 35px rgba(0, 243, 255, 0.08);
+    background: radial-gradient(circle at center, rgba(0, 243, 255, 0.04), rgba(0, 0, 0, 0.35));
+}
+
+.core-container::after {
+    content: '';
+    position: absolute;
+    width: 118%;
+    height: 118%;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 243, 255, 0.14);
+    box-shadow: 0 0 18px rgba(0, 243, 255, 0.15), inset 0 0 20px rgba(0, 243, 255, 0.08);
+    pointer-events: none;
 }
 
 /* Outer Glow Ring (Slow Spin) */
@@ -539,13 +554,114 @@
 
 .terminal-window {
     background: rgba(0,0,0,0.72);
-    border: 1px solid rgba(0,243,255,0.22);
+    border: 1px solid rgba(0,243,255,0.3);
     border-radius: 12px;
     padding: 12px;
     margin-top: 14px;
     font-family: var(--font-hud);
     font-size: 11px;
     color: #9ef7ff;
+    box-shadow: inset 0 0 24px rgba(0, 243, 255, 0.06), 0 0 20px rgba(0, 243, 255, 0.08);
+}
+
+.card-glass {
+    border: 1px solid rgba(0, 243, 255, 0.22);
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.5), inset 0 0 22px rgba(0, 243, 255, 0.04);
+}
+
+.voice-matrix-overlay {
+    position: absolute;
+    inset: -28px;
+    border-radius: 24px;
+    border: 1px solid rgba(0, 243, 255, 0.35);
+    background: linear-gradient(145deg, rgba(0, 243, 255, 0.12), rgba(5, 13, 26, 0.82));
+    box-shadow: 0 0 35px rgba(0, 243, 255, 0.25), inset 0 0 30px rgba(0, 243, 255, 0.08);
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(0.97);
+    transition: opacity 0.24s ease, visibility 0.24s ease, transform 0.24s ease;
+    z-index: 30;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.voice-matrix-overlay.active {
+    opacity: 1;
+    visibility: visible;
+    transform: scale(1);
+}
+
+.voice-matrix-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(0, 243, 255, 0.09) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 243, 255, 0.09) 1px, transparent 1px);
+    background-size: 20px 20px;
+    opacity: 0.35;
+}
+
+.voice-matrix-scanline {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, rgba(0, 243, 255, 0.85), transparent);
+    box-shadow: 0 0 12px rgba(0, 243, 255, 0.8);
+    animation: voiceMatrixSweep 1.15s linear infinite;
+}
+
+.voice-matrix-bars {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 18px;
+    height: 36px;
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+}
+
+.voice-matrix-bars span {
+    flex: 1;
+    min-height: 5px;
+    background: linear-gradient(180deg, rgba(0, 243, 255, 0.9), rgba(0, 243, 255, 0.2));
+    box-shadow: 0 0 8px rgba(0, 243, 255, 0.45);
+    animation: voiceMatrixBars 0.9s ease-in-out infinite alternate;
+}
+
+.voice-matrix-title,
+.voice-matrix-match {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    font-family: var(--font-hud);
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    text-shadow: 0 0 12px rgba(0, 243, 255, 0.6);
+}
+
+.voice-matrix-title {
+    top: 10px;
+    font-size: 10px;
+    color: rgba(167, 243, 255, 0.9);
+}
+
+.voice-matrix-match {
+    top: 28px;
+    font-size: 11px;
+    color: #00f3ff;
+}
+
+@keyframes voiceMatrixSweep {
+    0% { top: 8%; opacity: 0.2; }
+    45% { opacity: 1; }
+    100% { top: 88%; opacity: 0.2; }
+}
+
+@keyframes voiceMatrixBars {
+    0% { transform: scaleY(0.35); opacity: 0.42; }
+    100% { transform: scaleY(1); opacity: 1; }
 }
 
 .terminal-log-line {
@@ -1225,6 +1341,13 @@
         <div class="core-orb">
             <i class="fas fa-microphone core-mic"></i>
         </div>
+        <div id="voice-matrix-overlay" class="voice-matrix-overlay" aria-hidden="true">
+            <div class="voice-matrix-grid"></div>
+            <div class="voice-matrix-scanline"></div>
+            <div class="voice-matrix-title">Voice Matrix Analysis</div>
+            <div id="voice-matrix-match" class="voice-matrix-match">[MATCH: 99.8%]</div>
+            <div id="voice-matrix-bars" class="voice-matrix-bars"></div>
+        </div>
     </div>
 
     <div class="absolute bottom-6 w-full px-4 flex-row justify-center gap-3 overflow-x-auto no-scrollbar" style="z-index: 10;">
@@ -1503,6 +1626,9 @@ const userState = {
             terminalLog: document.getElementById('terminal-log'),
             jarvisChatInput: document.getElementById('jarvis-chat-input'),
             jarvisChatMessages: document.getElementById('jarvis-chat-messages'),
+            voiceMatrixOverlay: document.getElementById('voice-matrix-overlay'),
+            voiceMatrixMatch: document.getElementById('voice-matrix-match'),
+            voiceMatrixBars: document.getElementById('voice-matrix-bars'),
             
             // Profile Elements
             avatarDisplay: document.getElementById('user-avatar-display'),
@@ -2179,6 +2305,63 @@ function resetJarvisUI() {
 }
 
 const COMMANDER_KEY_REGEX = /\balpha\s+zero\s+one\b/;
+const RESTRICTED_SECURITY_WARNING = "Voice Signature Mismatch. Security Clearance Denied. Alerting Commander Akshay.";
+
+function renderVoiceMatrixBars(matchPercent = 99.8) {
+    if (!dom.voiceMatrixBars) return;
+    const bars = [];
+    const baseHeight = Math.max(18, Math.round(matchPercent / 4.8));
+    for (let i = 0; i < 16; i += 1) {
+        const variance = Math.floor(Math.random() * 26);
+        const wave = Math.floor(Math.abs(Math.sin((Date.now() / 260) + i)) * 14);
+        const height = Math.min(95, baseHeight + variance + wave);
+        bars.push(`<span style="height:${height}%"></span>`);
+    }
+    dom.voiceMatrixBars.innerHTML = bars.join('');
+}
+
+function calculateVoiceFingerprint(commandText, hasCommanderKey, isRestrictedCommand) {
+    const normalized = commandText.toLowerCase().replace(/\s+/g, ' ').trim();
+    const tokens = normalized ? normalized.split(' ') : [];
+    const hasNoisePattern = /(.)\1{4,}/.test(normalized);
+    const carriesCommanderIdentity = /\b(commander|akshay)\b/.test(normalized);
+    const includesAuthPhrase = /\b(confirm|authorize|override|clearance|access)\b/.test(normalized);
+    const patternRecognized = hasCommanderKey && tokens.length >= 3 && !hasNoisePattern;
+    let matchPercent = 97.2;
+    if (hasCommanderKey) matchPercent += 1.3;
+    if (carriesCommanderIdentity) matchPercent += 0.7;
+    if (includesAuthPhrase) matchPercent += 0.6;
+    if (!patternRecognized && isRestrictedCommand) matchPercent -= 58.4;
+    matchPercent = Math.max(18.4, Math.min(99.8, Number(matchPercent.toFixed(1))));
+    return { matchPercent, patternRecognized };
+}
+
+function wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function runVoiceMatrixAnalysis(rawText, hasCommanderKey, isRestrictedCommand) {
+    const fingerprint = calculateVoiceFingerprint(rawText, hasCommanderKey, isRestrictedCommand);
+    renderVoiceMatrixBars(fingerprint.matchPercent);
+
+    if (dom.voiceMatrixMatch) {
+        dom.voiceMatrixMatch.textContent = `[MATCH: ${fingerprint.matchPercent.toFixed(1)}%]`;
+        dom.voiceMatrixMatch.style.color = '#00f3ff';
+    }
+    if (dom.voiceMatrixOverlay) dom.voiceMatrixOverlay.classList.add('active');
+    await wait(520);
+
+    const isAuthorized = !isRestrictedCommand || (hasCommanderKey && fingerprint.patternRecognized);
+    if (!isAuthorized && dom.voiceMatrixMatch) {
+        dom.voiceMatrixMatch.textContent = `[MISMATCH: ${fingerprint.matchPercent.toFixed(1)}%]`;
+        dom.voiceMatrixMatch.style.color = '#ff4d6d';
+    }
+    logSystemActivity('SECURITY', `Voice matrix ${isAuthorized ? 'match' : 'mismatch'} (${fingerprint.matchPercent.toFixed(1)}%)`);
+    setTimeout(() => {
+        if (dom.voiceMatrixOverlay) dom.voiceMatrixOverlay.classList.remove('active');
+    }, 700);
+    return { ...fingerprint, isAuthorized };
+}
 
 // 2. MAIN COMMAND ROUTER (Saare Apps aur AI ka Logic)
 async function processCommand(rawText) {
@@ -2187,6 +2370,7 @@ async function processCommand(rawText) {
     const commandWithoutKey = cmd.replace(COMMANDER_KEY_REGEX, '').trim();
     const isProtocolRedCommand = commandWithoutKey.includes('protocol red') || commandWithoutKey.includes('combat mode') || commandWithoutKey.includes('emergency mode');
     const isSelfDestructCommand = commandWithoutKey.includes('self-destruct') || commandWithoutKey.includes('self destruct');
+    const isGuardianModeCommand = commandWithoutKey.includes('guardian mode') || commandWithoutKey.includes('guardian protocol');
     if (!cmd) return;
     userState.runtime.lastCommand = rawText;
     logSystemActivity('COMMAND', `Executing command: ${rawText}`);
@@ -2197,6 +2381,8 @@ async function processCommand(rawText) {
     if(core) core.classList.add('animate-spin');
 
     if(dom.outputText) dom.outputText.innerText = `"${rawText}"`;
+    const isRestrictedCommand = isProtocolRedCommand || isSelfDestructCommand || isGuardianModeCommand;
+    const voiceMatrixResult = await runVoiceMatrixAnalysis(rawText, hasCommanderKey, isRestrictedCommand);
 
     // --- A. FAST APP SHORTCUTS ---
     if (cmd.includes('youtube')) {
@@ -2217,9 +2403,10 @@ async function processCommand(rawText) {
         resetJarvisUI(); return;
     }
 
-    if (isProtocolRedCommand || isSelfDestructCommand) {
-        if (!hasCommanderKey) {
-            speakResponse("Voice Signature Mismatch");
+    if (isRestrictedCommand) {
+        if (!voiceMatrixResult.isAuthorized) {
+            speakResponse(RESTRICTED_SECURITY_WARNING);
+            logSystemActivity('SECURITY', `Restricted command denied: ${commandWithoutKey}`, 'CRITICAL');
             resetJarvisUI(); return;
         }
     }
@@ -2232,6 +2419,14 @@ async function processCommand(rawText) {
 
     if (isSelfDestructCommand) {
         speakResponse("Self-Destruct simulation acknowledged. Commander authorization confirmed.");
+        resetJarvisUI(); return;
+    }
+
+    if (isGuardianModeCommand) {
+        userState.runtime.isDeviceLocked = true;
+        armGuardianProtocol();
+        speakResponse("Guardian Mode engaged. Motion sentry armed.");
+        logSystemActivity('SECURITY', 'Guardian Mode engaged via commander authorization', 'CRITICAL');
         resetJarvisUI(); return;
     }
 
