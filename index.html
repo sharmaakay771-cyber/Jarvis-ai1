@@ -156,7 +156,7 @@
 
         /* Purana .view-panel hata kar ye wala dalein */
 .view-panel {
-    display: none !important; /* Default mein poori tarah band */
+    display: none; /* Default mein poori tarah band */
     opacity: 0;
     width: 100%;
     height: 100%;
@@ -2178,9 +2178,15 @@ function resetJarvisUI() {
     if(core) core.classList.remove('animate-spin');
 }
 
+const COMMANDER_KEY_REGEX = /\balpha\s+zero\s+one\b/;
+
 // 2. MAIN COMMAND ROUTER (Saare Apps aur AI ka Logic)
 async function processCommand(rawText) {
     const cmd = rawText.toLowerCase().trim();
+    const hasCommanderKey = COMMANDER_KEY_REGEX.test(cmd);
+    const commandWithoutKey = cmd.replace(COMMANDER_KEY_REGEX, '').trim();
+    const isProtocolRedCommand = commandWithoutKey.includes('protocol red') || commandWithoutKey.includes('combat mode') || commandWithoutKey.includes('emergency mode');
+    const isSelfDestructCommand = commandWithoutKey.includes('self-destruct') || commandWithoutKey.includes('self destruct');
     if (!cmd) return;
     userState.runtime.lastCommand = rawText;
     logSystemActivity('COMMAND', `Executing command: ${rawText}`);
@@ -2211,9 +2217,21 @@ async function processCommand(rawText) {
         resetJarvisUI(); return;
     }
 
-    if (cmd.includes('protocol red') || cmd.includes('combat mode') || cmd.includes('emergency mode')) {
+    if (isProtocolRedCommand || isSelfDestructCommand) {
+        if (!hasCommanderKey) {
+            speakResponse("Voice Signature Mismatch");
+            resetJarvisUI(); return;
+        }
+    }
+
+    if (isProtocolRedCommand) {
         activateProtocolRed('Command');
         speakResponse("Protocol Red engaged. ULTRON defense persona online.");
+        resetJarvisUI(); return;
+    }
+
+    if (isSelfDestructCommand) {
+        speakResponse("Self-Destruct simulation acknowledged. Commander authorization confirmed.");
         resetJarvisUI(); return;
     }
 
