@@ -37,6 +37,10 @@
     <!-- FONT AWESOME (ICONS) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" defer></script>
 
     <!-- ANIMATE.CSS (Optional helpers, though we write custom keyframes mostly) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
@@ -156,7 +160,7 @@
 
         /* Purana .view-panel hata kar ye wala dalein */
 .view-panel {
-    display: none; /* Default mein poori tarah band */
+    display: none !important; /* Default mein poori tarah band */
     opacity: 0;
     width: 100%;
     height: 100%;
@@ -651,6 +655,64 @@
     top: 28px;
     font-size: 11px;
     color: #00f3ff;
+}
+
+.self-repair-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2500;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: radial-gradient(circle at center, rgba(0, 22, 42, 0.92) 0%, rgba(0, 0, 0, 0.98) 70%);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+
+.self-repair-overlay.active {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: all;
+}
+
+.self-repair-grid-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.self-repair-grid-svg .self-repair-line {
+    stroke: rgba(0, 243, 255, 0.28);
+    stroke-width: 1;
+}
+
+.self-repair-scanline {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, rgba(0, 243, 255, 0.95), transparent);
+    box-shadow: 0 0 14px rgba(0, 243, 255, 0.9);
+    animation: selfRepairSweep 0.9s linear infinite;
+}
+
+@keyframes selfRepairSweep {
+    0% { top: 0; }
+    100% { top: calc(100% - 4px); }
+}
+
+.self-repair-text {
+    position: relative;
+    z-index: 2;
+    font-family: var(--font-hud);
+    font-size: clamp(14px, 2vw, 22px);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: #82f7ff;
+    text-shadow: 0 0 18px rgba(0, 243, 255, 0.65);
 }
 
 @keyframes voiceMatrixSweep {
@@ -1291,6 +1353,10 @@
                 <div id="system-status-badge" class="px-2 py-1 rounded border border-cyan/40 bg-cyan/10 text-[10px] text-cyan font-bold uppercase tracking-wider">
                     System Status: Online
                 </div>
+                <div id="system-health-hud" class="flex items-center gap-2" aria-live="polite">
+                    <span id="battery-status" class="px-2 py-1 rounded border border-green-400/40 bg-green-400/10 text-[10px] text-green-300 font-bold uppercase tracking-wider">Battery: --%</span>
+                    <span id="latency-status" class="px-2 py-1 rounded border border-cyan/40 bg-cyan/10 text-[10px] text-cyan font-bold uppercase tracking-wider">Latency: --ms</span>
+                </div>
                 <!-- Plan Badge -->
                 <div id="plan-badge" class="px-2 py-1 rounded border border-gray-700 bg-white/5 text-[10px] text-dim font-bold uppercase tracking-wider">
                     FREE PLAN
@@ -1417,6 +1483,16 @@
             </div>
         </div>
 
+        <div id="view-neural" class="view-panel w-full h-full flex-col p-4">
+            <section class="card-glass w-full h-full flex-col overflow-hidden">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="font-hud text-cyan text-sm uppercase tracking-[3px]">Neural Interface</h2>
+                    <button class="px-3 py-1 rounded-lg border border-cyan/40 bg-cyan/10 text-cyan text-[10px] font-bold tracking-[2px]" onclick="window.open('neural-chat.html', '_blank')">OPEN FULL</button>
+                </div>
+                <iframe src="neural-chat.html" title="Neural Interface" class="w-full flex-1 rounded-xl border border-cyan/25 bg-black/30" loading="lazy"></iframe>
+            </section>
+        </div>
+
         <div id="view-profile" class="view-panel w-full h-full flex-col p-6 overflow-y-auto">
             
             <h2 class="font-hud text-xl text-white mb-6 border-l-4 border-purple pl-3 uppercase tracking-widest">Identity Matrix</h2>
@@ -1468,19 +1544,19 @@
    ========================================================================== -->
 <nav style="width: 100%; height: 80px; position: absolute; bottom: 0; left: 0; background: rgba(0,0,0,0.9); backdrop-filter: blur(10px); border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-around; align-items: center; z-index: 500;">
     
-    <button class="nav-btn flex-col flex-center text-cyan" onclick="navigateTo('home')" style="flex:1; background:none; border:none;">
+    <button class="nav-btn flex-col flex-center text-cyan" data-view="home" onclick="navigateTo('home')" style="flex:1; background:none; border:none;">
         <i class="fas fa-microphone-alt text-xl mb-1"></i><span style="font-size:9px; font-weight:bold; font-family: 'Rajdhani', sans-serif;">CORE</span>
     </button>
     
-    <button class="nav-btn flex-col flex-center text-dim" onclick="navigateTo('commands')" style="flex:1; background:none; border:none;">
+    <button class="nav-btn flex-col flex-center text-dim" data-view="commands" onclick="navigateTo('commands')" style="flex:1; background:none; border:none;">
         <i class="fas fa-th-large text-xl mb-1"></i><span style="font-size:9px; font-weight:bold; font-family: 'Rajdhani', sans-serif;">APPS</span>
     </button>
     
-    <button class="nav-btn flex-col flex-center text-dim" onclick="openNeuralChatInterface()" style="flex:1; background:none; border:none;">
+    <button class="nav-btn flex-col flex-center text-dim" data-view="neural" onclick="openNeuralChatInterface()" style="flex:1; background:none; border:none;">
         <i class="fas fa-brain text-xl mb-1" style="color: #00f3ff;"></i><span style="font-size:9px; font-weight:bold; font-family: 'Rajdhani', sans-serif;">NEURAL</span>
     </button>
     
-    <button class="nav-btn flex-col flex-center text-dim" onclick="navigateTo('profile')" style="flex:1; background:none; border:none;">
+    <button class="nav-btn flex-col flex-center text-dim" data-view="profile" onclick="navigateTo('profile')" style="flex:1; background:none; border:none;">
         <i class="fas fa-user-astronaut text-xl mb-1"></i><span style="font-size:9px; font-weight:bold; font-family: 'Rajdhani', sans-serif;">ID</span>
     </button>
 
@@ -1490,6 +1566,18 @@
 
     <!-- Overlay for specific full screen modes (Alerts/Call) -->
     <div id="overlay-layer" class="fixed inset-0 z-[1000] pointer-events-none opacity-0 transition-opacity"></div>
+    <div id="self-repair-overlay" class="self-repair-overlay" aria-hidden="true">
+        <svg class="self-repair-grid-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+                <pattern id="self-repair-grid-pattern" width="5" height="5" patternUnits="userSpaceOnUse">
+                    <path d="M 5 0 L 0 0 0 5" class="self-repair-line" fill="none"></path>
+                </pattern>
+            </defs>
+            <rect width="100" height="100" fill="url(#self-repair-grid-pattern)"></rect>
+        </svg>
+        <div class="self-repair-scanline"></div>
+        <div class="self-repair-text">Self-Repair Sequence Running...</div>
+    </div>
 
     <!-- ==========================================================================
        14.0 - JAVASCRIPT LOGIC CORE
@@ -1606,7 +1694,7 @@ const userState = {
             // Views
             viewHome: document.getElementById('view-home'),
             viewCommands: document.getElementById('view-commands'),
-            viewChat: document.getElementById('view-chat'),
+            viewNeural: document.getElementById('view-neural'),
             viewProfile: document.getElementById('view-profile'),
             
             // Auth Forms
@@ -1624,11 +1712,14 @@ const userState = {
             statusText: document.getElementById('listening-status'),
             outputText: document.getElementById('jarvis-output-text'),
             terminalLog: document.getElementById('terminal-log'),
+            batteryStatus: document.getElementById('battery-status'),
+            latencyStatus: document.getElementById('latency-status'),
             jarvisChatInput: document.getElementById('jarvis-chat-input'),
             jarvisChatMessages: document.getElementById('jarvis-chat-messages'),
             voiceMatrixOverlay: document.getElementById('voice-matrix-overlay'),
             voiceMatrixMatch: document.getElementById('voice-matrix-match'),
             voiceMatrixBars: document.getElementById('voice-matrix-bars'),
+            selfRepairOverlay: document.getElementById('self-repair-overlay'),
             
             // Profile Elements
             avatarDisplay: document.getElementById('user-avatar-display'),
@@ -1780,12 +1871,9 @@ const userState = {
         }
 
         function openNeuralChatInterface() {
-            navigateTo('commands');
+            navigateTo('neural');
             setInputMode('text');
             logSystemActivity('COMMAND', 'Neural chat interface linked with dashboard');
-            if (dom.jarvisChatInput) {
-                dom.jarvisChatInput.focus();
-            }
         }
 
         function sendJarvisChat() {
@@ -1859,8 +1947,7 @@ const userState = {
             document.querySelectorAll('.nav-btn').forEach(btn => {
                 btn.classList.remove('text-cyan');
                 btn.classList.add('text-dim');
-                // Button ke HTML mein viewId dhoondo highlight karne ke liye
-                if(btn.outerHTML.includes(viewId)) {
+                if(btn.getAttribute('data-view') === viewId) {
                     btn.classList.add('text-cyan');
                     btn.classList.remove('text-dim');
                 }
@@ -2320,6 +2407,8 @@ const VOICE_MATCH_AUTH_BONUS = 0.6;
 const VOICE_MATCH_MIN = 18.4;
 const VOICE_MATCH_MAX = 99.8;
 const VOICE_NOISE_PATTERN_REGEX = /(.)\1{4,}/;
+const SELF_REPAIR_SEQUENCE_MS = 3000;
+const LOW_BATTERY_THRESHOLD = 20;
 const RESTRICTED_COMMAND_PATTERNS = [
     { type: 'protocol_red', patterns: ['protocol red', 'combat mode', 'emergency mode'] },
     { type: 'self_destruct', patterns: ['self-destruct', 'self destruct'] },
@@ -2366,6 +2455,18 @@ function calculateVoiceFingerprint(commandText, hasCommanderKey, isRestrictedCom
 
 function wait(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function runSelfRepairSequence() {
+    if (!dom.selfRepairOverlay || dom.selfRepairOverlay.classList.contains('active')) return;
+    logSystemActivity('SYSTEM', 'Self-Repair sequence started');
+    dom.selfRepairOverlay.classList.add('active');
+    await wait(SELF_REPAIR_SEQUENCE_MS);
+    dom.selfRepairOverlay.classList.remove('active');
+    navigateTo('home');
+    resetJarvisUI();
+    if (dom.outputText) dom.outputText.innerText = "Self-Repair complete. All systems restored.";
+    logSystemActivity('SYSTEM', 'Self-Repair sequence completed');
 }
 
 async function runVoiceMatrixAnalysis(rawText, hasCommanderKey, isRestrictedCommand) {
@@ -2456,6 +2557,12 @@ async function processCommand(rawText) {
         armGuardianProtocol();
         speakResponse("Guardian Mode engaged. Motion sentry armed.");
         logSystemActivity('SECURITY', 'Guardian Mode engaged via commander authorization', 'CRITICAL');
+        resetJarvisUI(); return;
+    }
+
+    if (cmd.includes('self-repair') || cmd.includes('self repair')) {
+        speakResponse("Initiating Self-Repair sequence.");
+        await runSelfRepairSequence();
         resetJarvisUI(); return;
     }
 
@@ -3407,26 +3514,58 @@ setTimeout(unlockJarvisInterface, 3000);
         */
 
         function initHudData() {
+            let lowBatteryAlertSent = false;
+
             // Battery API
             if (navigator.getBattery) {
                 navigator.getBattery().then(battery => {
                     const updateBattery = () => {
                         const level = Math.floor(battery.level * 100);
-                        // Update UI if elements exist
+                        const lowBattery = level < LOW_BATTERY_THRESHOLD;
+                        if (dom.batteryStatus) {
+                            dom.batteryStatus.textContent = `Battery: ${level}%`;
+                            dom.batteryStatus.className = `px-2 py-1 rounded border text-[10px] font-bold uppercase tracking-wider ${
+                                lowBattery
+                                    ? 'border-red-400/40 bg-red-500/10 text-red-300'
+                                    : 'border-green-400/40 bg-green-400/10 text-green-300'
+                            }`;
+                        }
+                        if (lowBattery && !lowBatteryAlertSent) {
+                            lowBatteryAlertSent = true;
+                            speakResponse("Commander, power levels are critical.");
+                            logSystemActivity('SYSTEM', `Battery critical at ${level}%`, 'WARN');
+                        } else if (!lowBattery) {
+                            lowBatteryAlertSent = false;
+                        }
                         console.log(`HUD: Battery at ${level}%`);
                     };
                     battery.addEventListener('levelchange', updateBattery);
+                    battery.addEventListener('chargingchange', updateBattery);
                     updateBattery();
                 });
+            } else if (dom.batteryStatus) {
+                dom.batteryStatus.textContent = 'Battery: N/A';
             }
 
-            // Connection Latency Simulation
-            setInterval(() => {
-                if(userState.isAuthenticated) {
-                    const latency = Math.floor(Math.random() * 50) + 10;
-                    // Optional: Update a small HUD text in header
+            // Connection Latency Tracking
+            const updateLatency = async () => {
+                if (!dom.latencyStatus) return;
+                if (!navigator.onLine) {
+                    dom.latencyStatus.textContent = 'Latency: Offline';
+                    return;
                 }
-            }, 5000);
+                const t0 = performance.now();
+                try {
+                    await fetch(window.location.href, { method: 'HEAD', cache: 'no-store' });
+                    const latency = Math.max(1, Math.round(performance.now() - t0));
+                    dom.latencyStatus.textContent = `Latency: ${latency}ms`;
+                } catch (_) {
+                    const fallbackLatency = Math.max(1, Math.round(performance.now() - t0));
+                    dom.latencyStatus.textContent = `Latency: ${fallbackLatency}ms`;
+                }
+            };
+            updateLatency();
+            setInterval(updateLatency, 5000);
         }
 
         /* 
